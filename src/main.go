@@ -23,12 +23,25 @@ func init() {
 	log.SetReportCaller(true)
 }
 
+// Employees struct with public access
+type EmployeesModel struct {
+	Id int `gorm:"primary_key"`
+	FirstName string
+	LastName string
+	Salary float64
+}
+
+// Open database connection
 var db, _ = gorm.Open("mysql", "root:root@/employees?charset=utf8&parseTime=True&loc=Local")
 
 // Main function
 func main() {
 	// Close database connection
 	defer db.Close()
+
+	// Automigrates MySQL database after starting our API Server
+	db.Debug().DropTableIfExists(&EmployeesModel{})
+	db.Debug().AutoMigrate(&EmployeesModel{})
 
 	log.Info("Starting employees API server")
 	router := mux.NewRouter()
