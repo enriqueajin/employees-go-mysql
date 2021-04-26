@@ -10,6 +10,7 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/mysql"
 	"strconv"
 	"encoding/json"
+	"github.com/rs/cors"
 )
 
 // Employees struct with public access
@@ -45,7 +46,7 @@ func CreateEmployee(w http.ResponseWriter, r *http.Request) {
 	log.WithFields(log.Fields{"salary": salary}).Info("Salary added")
 
 	employee := &EmployeesModel{FirstName: firstName, LastName: lastName, Salary: salary }
-	db.Create(&employee)
+	db.Select("FirstName", "LastName", "Salary").Create(&employee)
 	result := db.Last(&employee)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result.Value)
@@ -92,13 +93,13 @@ func UpdateEmployee(w http.ResponseWriter, r *http.Request) {
 			io.WriteString(w, `{"updated": false, "error": "Record Not Found"}`)
 	} else {
 			firstname := r.FormValue("firstname")
-			log.WithFields(log.Fields{"id": id, "firstname": firstname}).Info("Updating first name")
+			log.WithFields(log.Fields{"firstname": firstname}).Info("Updating first name")
 
 			lastname := r.FormValue("lastname")
-			log.WithFields(log.Fields{"id": id, "lastname": lastname}).Info("Updating last name")
+			log.WithFields(log.Fields{"lastname": lastname}).Info("Updating last name")
 
 			salary, _ := strconv.ParseFloat(r.FormValue("salary"), 64)
-			log.WithFields(log.Fields{"id": id, "salary": salary}).Info("Updating salary")
+			log.WithFields(log.Fields{"salary": salary}).Info("Updating salary")
 
 			employee := &EmployeesModel{}
 			db.First(&employee, id)
@@ -148,8 +149,13 @@ func main() {
 	router := mux.NewRouter()
 	router.HandleFunc("/healthz", Healthz).Methods("GET")
 	router.HandleFunc("/all-employees", GetAllEmployees).Methods("GET")
-	router.HandleFunc("/employee", CreateEmployee).Methods("POST")
+	router.HandleFunc("/create", CreateEmployee).Methods("POST")
 	router.HandleFunc("/employee/{id}", UpdateEmployee).Methods("POST")
 	router.HandleFunc("/employee/{id}", DeleteEmployee).Methods("DELETE")
-	http.ListenAndServe(":8000", router)
-}
+
+	handler := cors.New(cors.Options{
+			AllowedMethods: []string{"GET", "POST", "DELETE"},
+	}).Handler(router)
+
+	http.ListenAndServe(":8000", handler)
+}	
