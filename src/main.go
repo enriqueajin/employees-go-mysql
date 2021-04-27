@@ -52,8 +52,8 @@ func CreateEmployee(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(result.Value)
 }
 
-// Function to get an employee by id
-func GetEmployeeById(Id int) bool {
+// Function to check if employee exists in the database
+func EmployeeExists(Id int) bool {
 	employee := &EmployeesModel{}
 	result := db.First(&employee, Id)
 	if result.Error != nil{
@@ -63,7 +63,7 @@ func GetEmployeeById(Id int) bool {
 	return true
 }
 
-// Function to get all employees (Read)
+// Function to get all employees 
 func GetAllEmployees(w http.ResponseWriter, r *http.Request) {
 	var employees []EmployeesModel
 	FindEmployees := db.Find(&employees).Value
@@ -74,6 +74,27 @@ func GetAllEmployees(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(allEmployees)
 }
  
+// Function to get an employee by id
+func GetEmployeeById(w http.ResponseWriter, r *http.Request) {
+	// Get URL parameter from mux
+	vars := mux.Vars(r)
+	id, _ := strconv.Atoi(vars["id"])
+
+	err := EmployeeExists(id)
+	if !err {
+			w.Header().Set("Content-Type", "application/json")
+			io.WriteString(w, `{"updated": false, "error": "Record Not Found"}`)
+	} else {
+		employee := &EmployeesModel{}
+		FindEmployee := db.First(&employee, id)
+
+		log.Info("Get an employee")
+		AnEmployee := FindEmployee
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(AnEmployee)
+	}
+}
+
 // func GetTodoItems(completed bool) interface{} {
 // 	var todos []TodoItemModel
 // 	TodoItems := db.Where("completed = ?", completed).Find(&todos).Value
@@ -87,7 +108,7 @@ func UpdateEmployee(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(vars["id"])
 
 	// Test if an employee exist in DB
-	err := GetEmployeeById(id)
+	err := EmployeeExists(id)
 	if !err {
 			w.Header().Set("Content-Type", "application/json")
 			io.WriteString(w, `{"updated": false, "error": "Record Not Found"}`)
@@ -119,7 +140,7 @@ func DeleteEmployee(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(vars["id"])
 
 	// Test if an employee exist in DB
-	err := GetEmployeeById(id)
+	err := EmployeeExists(id)
 	if !err {
 			w.Header().Set("Content-Type", "application/json")
 			io.WriteString(w, `{"deleted": false, "error": "Record Not Found"}`)
@@ -149,12 +170,13 @@ func main() {
 	router := mux.NewRouter()
 	router.HandleFunc("/healthz", Healthz).Methods("GET")
 	router.HandleFunc("/all-employees", GetAllEmployees).Methods("GET")
+	router.HandleFunc("/employee/{id}", GetEmployeeById).Methods("GET")
 	router.HandleFunc("/create", CreateEmployee).Methods("POST")
-	router.HandleFunc("/employee/{id}", UpdateEmployee).Methods("POST")
-	router.HandleFunc("/employee/{id}", DeleteEmployee).Methods("DELETE")
+	router.HandleFunc("/update/{id}", UpdateEmployee).Methods("POST")
+	router.HandleFunc("/delete/{id}", DeleteEmployee).Methods("DELETE")
 
 	handler := cors.New(cors.Options{
-			AllowedMethods: []string{"GET", "POST", "DELETE"},
+			AllowedMethods: []string{"GET", "POST", "DELETE", "PATCH", "OPTIONS"},
 	}).Handler(router)
 
 	http.ListenAndServe(":8000", handler)
